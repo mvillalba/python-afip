@@ -45,7 +45,8 @@ class WebServiceTool:
                 return
             with open(path) as fp:
                 profile = json.load(fp)
-            self.credentials = AFIPCredentials(profile['crt_path'], profile['key_path'], profile['environment'] == 'production')
+            self.credentials = AFIPCredentials(profile['crt_path'], profile['key_path'],
+                                               profile['environment'] == 'production')
 
         # Call sub-class handler
         return self.handle(args)
