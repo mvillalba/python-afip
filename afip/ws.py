@@ -2,10 +2,41 @@ import os
 import re
 import json
 from appdirs import user_data_dir
+from requests import Session
+from zeep import Client
+from zeep.transports import Transport
 from zeep.cache import SqliteCache
 from .credentials import AFIPCredentials, LoginTicket
+from .zeep import TapeRecorderPlugin
 
 ZEEP_CACHE_TIMEOUT = 24 * 3600
+
+
+class WebServiceError(Exception):
+    def __init__(self, code, message):
+        self.code = code
+        self.message = message
+
+    def __str__(self):
+        return f'{self.code}: {self.message}'
+
+
+class WebServiceClient:
+    name = None
+    wsdl_testing = None
+    wsdl_production = None
+    needs_ticket = True
+
+    def __init__(self, credentials, zeep_cache=None, log_dir=None):
+        if self.needs_ticket and self.name not in credentials.tickets:
+            raise Exception(f'Ticket for "{self.name}" service not found in credentials object.')
+        wsdl = self.wsdl_production if credentials.production else self.wsdl_testing
+        session = Session()
+        session.cert = (credentials.crt_path, credentials.key_path)
+        transport = Transport(session=session, cache=zeep_cache)
+        plugins = [TapeRecorderPlugin(self.name, log_dir)] if log_dir is not None else []
+        self.credentials = credentials
+        self.client = Client(wsdl, transport=transport, plugins=plugins)
 
 
 class WebServiceTool:
@@ -45,14 +76,25 @@ class WebServiceTool:
                 return
             with open(path) as fp:
                 profile = json.load(fp)
-            self.credentials = AFIPCredentials(profile['crt_path'], profile['key_path'],
-                                               profile['environment'] == 'production')
+            tickets = self.get_tickets()
+            self.credentials = AFIPCredentials(profile['cuit'], profile['crt_path'], profile['key_path'],
+                                               profile['environment'] == 'production', tickets)
 
         # Call sub-class handler
         return self.handle(args)
 
     def get_profile_path(self, profile, extension='json'):
         return os.path.join(self.credentials_dir, profile + '.' + extension)
+
+    def get_tickets(self):
+        tickets = dict()
+        tokens = {t.split('.')[1]: t for t in os.listdir(self.token_dir) if t.startswith(self.profile + '.')}
+        for service, path in tokens.items():
+            ticket = self.get_ticket(service)
+            if ticket is None:
+                continue
+            tickets[service] = ticket
+        return tickets
 
     def get_ticket(self, service):
         path = os.path.join(self.token_dir, self.profile + '.' + service + '.xml')
@@ -83,6 +125,7 @@ class ProfileTool(WebServiceTool):
 
         add = subparsers.add_parser('add', help='add profile')
         add.add_argument('name', help='name for the profile (e.g "martin_testing")')
+        add.add_argument('cuit', help='CUIT number for tax payer')
         add.add_argument('crt_path', help='path to X.509 certificate')
         add.add_argument('key_path', help='path to certificate private key')
         add.add_argument('environment', help='either "testing" or "production"')
@@ -131,7 +174,7 @@ class ProfileTool(WebServiceTool):
             with open(key_path, 'w') as ofp:
                 ofp.write(ifp.read())
 
-        data = dict(crt_path=crt_path, key_path=key_path, environment=args.environment)
+        data = dict(cuit=args.cuit, crt_path=crt_path, key_path=key_path, environment=args.environment)
         with open(self.get_profile_path(args.name), 'w') as fp:
             json.dump(data, fp)
 

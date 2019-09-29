@@ -6,10 +6,12 @@ TOKEN_EXPIRATION_OFFSET = -600
 
 
 class AFIPCredentials:
-    def __init__(self, crt_path, key_path, production=False):
+    def __init__(self, cuit, crt_path, key_path, production=False, tickets=None):
+        self.cuit = cuit
         self.crt_path = crt_path
         self.key_path = key_path
         self.production = production
+        self.tickets = dict() if tickets is None else tickets
 
 
 class LoginTicket:

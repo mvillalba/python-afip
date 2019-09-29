@@ -2,11 +2,13 @@ import sys
 import argparse
 from .version import __version__
 from .wsaa import WSAATool
+from .wsfex import WSFEXTool
 from .ws import ProfileTool
 
 COMMAND_CLASSES = (
     ProfileTool,
     WSAATool,
+    WSFEXTool,
 )
 
 

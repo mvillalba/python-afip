@@ -11,25 +11,19 @@ from zeep import Client
 from zeep.transports import Transport
 import zeep.exceptions
 from .zeep import TapeRecorderPlugin
-from .ws import WebServiceTool
+from .ws import WebServiceClient, WebServiceTool
 from .credentials import LoginTicket
 
-WSDL_URL_TESTING = 'https://wsaahomo.afip.gov.ar/ws/services/LoginCms?wsdl'
-WSDL_URL_PRODUCTION = 'https://wsaa.afip.gov.ar/ws/services/LoginCms?wsdl'
 TRA_TTL = 24 * 3600
 TRA_DESTINATION_TESTING = "cn=wsaahomo,o=afip,c=ar,serialNumber=CUIT 33693450239"
 TRA_DESTINATION_PRODUCTION = "cn=wsaa,o=afip,c=ar,serialNumber=CUIT 33693450239"
 
 
-class WSAAClient:
-    def __init__(self, credentials, zeep_cache = None, log_dir = None):
-        wsdl = WSDL_URL_PRODUCTION if credentials.production else WSDL_URL_TESTING
-        session = Session()
-        session.cert = (credentials.crt_path, credentials.key_path)
-        transport = Transport(session=session, cache=zeep_cache)
-        plugins = [TapeRecorderPlugin('wsaa', log_dir)] if log_dir is not None else []
-        self.credentials = credentials
-        self.client = Client(wsdl, transport=transport, plugins=plugins)
+class WSAAClient(WebServiceClient):
+    name = 'wsaa'
+    wsdl_testing = 'https://wsaahomo.afip.gov.ar/ws/services/LoginCms?WSDL'
+    wsdl_production = 'https://wsaa.afip.gov.ar/ws/services/LoginCms?WSDL'
+    needs_ticket = False
 
     def make_tra(self, service, source = None, destination = None, ttl = TRA_TTL):
         source = f"<source>{source}</source>" if source is not None else ""
@@ -94,11 +88,7 @@ class WSAATool(WebServiceTool):
             return self.authorize(args)
 
     def show(self, args):
-        tokens = {t.split('.')[1]: t for t in os.listdir(self.token_dir) if t.startswith(self.profile + '.')}
-        for service, path in tokens.items():
-            ticket = self.get_ticket(service)
-            if ticket is None:
-                continue
+        for service, ticket in self.get_tickets().items():
             print(f'{service} (expires {ticket.expires_str})')
 
     def authorize(self, args):
