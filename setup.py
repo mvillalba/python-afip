@@ -23,6 +23,8 @@ setup(
         'zeep>=3.4.0',
         'M2Crypto>=0.35.2',
         'python-dateutil>=2.8.0',
+        'lxml>=4.4.1',
+        'appdirs>=1.4.3',
     ],
     # entry_points={
     #     'console_scripts': [

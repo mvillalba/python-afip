@@ -1,6 +1,7 @@
 # Implements an interface to the "WSAA" web service as described in:
 # http://www.afip.gob.ar/ws/WSAA/Especificacion_Tecnica_WSAA_1.2.2.pdf
 
+import os
 import time
 import email
 from datetime import datetime, timedelta, timezone
@@ -12,6 +13,7 @@ from lxml import etree
 import dateutil.parser
 import xml.etree.ElementTree as ET
 from .zeep import TapeRecorderPlugin
+from .ws import WebServiceTool
 
 WSDL_URL_TESTING = 'https://wsaahomo.afip.gov.ar/ws/services/LoginCms?wsdl'
 WSDL_URL_PRODUCTION = 'https://wsaa.afip.gov.ar/ws/services/LoginCms?wsdl'
@@ -95,3 +97,28 @@ class WSAAClient:
         # Parse and return
         return LoginTicket(xml)
 
+
+class WSAATool(WebServiceTool):
+    name = 'wsaa'
+    help = 'WebService de Autenticación y Autorización'
+
+    def __init__(self, parser):
+        super().__init__(parser)
+        self.token_dir = os.path.join(self.data_dir, 'tokens')
+        subparsers = parser.add_subparsers(title='subcommands', dest='subcommand', required=True)
+        subparsers.add_parser('show', help='print list of held tokens and expiration dates')
+        auth = subparsers.add_parser('authorize', help='request token for a given service')
+        auth.add_argument('service', help='name of service (WSN) to request a token for')
+
+    def handle(self, args):
+        if args.subcommand == 'show':
+            return self.show(args)
+        elif args.subcommand == 'authorize':
+            return self.authorize(args)
+
+    def show(self, args):
+        pass
+        # TODO:
+
+    def authorize(self, args):
+        pass # TODO
