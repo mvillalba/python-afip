@@ -9,37 +9,16 @@ from M2Crypto import BIO, Rand, SMIME
 from requests import Session
 from zeep import Client
 from zeep.transports import Transport
-from lxml import etree
-import dateutil.parser
-import xml.etree.ElementTree as ET
+import zeep.exceptions
 from .zeep import TapeRecorderPlugin
 from .ws import WebServiceTool
+from .credentials import LoginTicket
 
 WSDL_URL_TESTING = 'https://wsaahomo.afip.gov.ar/ws/services/LoginCms?wsdl'
 WSDL_URL_PRODUCTION = 'https://wsaa.afip.gov.ar/ws/services/LoginCms?wsdl'
 TRA_TTL = 24 * 3600
 TRA_DESTINATION_TESTING = "cn=wsaahomo,o=afip,c=ar,serialNumber=CUIT 33693450239"
-TRA_DESTINATION_PRODUCTION = "cn=wsaa,o=afip,c=ar,serialNumber=CUIT 33693450239" 
-TOKEN_EXPIRATION_OFFSET = -600
-
-
-class LoginTicket:
-    def __init__(self, xml, expiration_offset = TOKEN_EXPIRATION_OFFSET):
-        self.xml = xml
-        self.tree = None
-        self.tree = ET.fromstring(self.xml)
-        expires = self.tree.find('header/expirationTime').text
-        self.expires = dateutil.parser.parse(expires).timestamp() + expiration_offset
-        self.token = self.tree.find('credentials/token').text
-        self.signature = self.tree.find('credentials/sign').text
-
-    def is_expired(self):
-        if time.time() >= self.expires:
-            return True
-        return False
-
-    def __str__(self):
-        return self.xml
+TRA_DESTINATION_PRODUCTION = "cn=wsaa,o=afip,c=ar,serialNumber=CUIT 33693450239"
 
 
 class WSAAClient:
@@ -85,8 +64,7 @@ class WSAAClient:
             if p.get_filename() == "smime.p7m":
                 return p.get_payload(decode=False)
 
-
-    def authenticate(self, service):
+    def authorize(self, service):
         # Prepare TRA/CMS
         tra = self.make_tra(service)
         cms = self.sign_tra(tra)
@@ -104,7 +82,6 @@ class WSAATool(WebServiceTool):
 
     def __init__(self, parser):
         super().__init__(parser)
-        self.token_dir = os.path.join(self.data_dir, 'tokens')
         subparsers = parser.add_subparsers(title='subcommands', dest='subcommand', required=True)
         subparsers.add_parser('show', help='print list of held tokens and expiration dates')
         auth = subparsers.add_parser('authorize', help='request token for a given service')
@@ -117,8 +94,28 @@ class WSAATool(WebServiceTool):
             return self.authorize(args)
 
     def show(self, args):
-        pass
-        # TODO:
+        tokens = {t.split('.')[1]: t for t in os.listdir(self.token_dir) if t.startswith(self.profile + '.')}
+        for service, path in tokens.items():
+            ticket = self.get_ticket(service)
+            if ticket is None:
+                continue
+            print(f'{service} (expires {ticket.expires_str})')
 
     def authorize(self, args):
-        pass # TODO
+        # Request token
+        client = WSAAClient(self.credentials, zeep_cache=self.zeep_cache, log_dir=self.log_dir)
+        try:
+            ticket = client.authorize(args.service)
+        except zeep.exceptions.Fault as e:
+            print(f'Error: {e.code}: {e.message}')
+            return
+
+        # Store token XML
+        path = os.path.join(self.token_dir, self.profile + '.' + args.service + '.xml')
+        with open(path, 'w') as fp:
+            fp.write(ticket.xml)
+
+        # Dump info
+        print("Expires:", ticket.expires_str)
+        print("Token:", ticket.token)
+        print("Signature:", ticket.signature)
