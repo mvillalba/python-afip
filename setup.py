@@ -7,7 +7,7 @@ with open('README.md', 'r') as fh:
     long_description = fh.read()
 
 setup(
-    name='primary',
+    name='afip',
     packages=find_packages(),
     version=afip.__version__,
     license='MIT',
