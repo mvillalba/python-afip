@@ -31,15 +31,16 @@ You might notice there is another package available for Python to interact with 
 pyafipws and you might be wondering why use this one instead. To that, I can tell you why I'm writing
 it:
  * This is a simpler, one-function-one-package sort of deal. Use it to build something else.
- * It runs on Python 3 out of the box.
+ * It runs on Python 3 (and only Python 3) out of the box.
  * The code is simpler/cleaner to understand.
- * This package tries to abstract away (i.e. hide) some of the inherent ugliness in the native
-   interfaces to the extent that's possible.
+ * This package tries to abstract away (i.e. hide) the inherent ugliness in the native interfaces and
+   give you more natural data structures that don't make you feel like you are dealing with an ugly
+   pile of XML documents and general SOAP awfulness. Because you are not, I am, so you don't have to.
    
 And just to be fair, a few reasons not to use it:
  * You want something established and better tested.
  * You need services not currently supported.
- * You don't care about Python 3 (though you should, it's nicer).
+ * You don't care about Python 3 (though you should, really, it's sweeeet).
  * You aren't looking to integrate this into something else. You want a fully built out solution.
  
  
