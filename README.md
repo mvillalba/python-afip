@@ -33,9 +33,10 @@ it:
  * This is a simpler, one-function-one-package sort of deal. Use it to build something else.
  * It runs on Python 3 (and only Python 3) out of the box.
  * The code is simpler/cleaner to understand.
- * This package tries to abstract away (i.e. hide) the inherent ugliness in the native interfaces and
-   give you more natural data structures that don't make you feel like you are dealing with an ugly
-   pile of XML documents and general SOAP awfulness. Because you are not, I am, so you don't have to.
+ * This package tries to abstract away (i.e. hide) the inherent ugliness and the sea of inconsistencies
+   in the native interfaces and gives you more natural data structures that don't make you feel like you
+   are dealing with an ugly pile of XML documents and related SOAP awfulness. Because you are not, I am,
+   so you don't have to.
    
 And just to be fair, a few reasons not to use it:
  * You want something established and better tested.
