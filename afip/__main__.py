@@ -4,12 +4,14 @@ import zeep.exceptions
 from .version import __version__
 from .wsaa import WSAATool
 from .wsfex import WSFEXTool
+from .wsfe import WSFETool
 from .ws import ProfileTool
 
 COMMAND_CLASSES = (
     ProfileTool,
     WSAATool,
     WSFEXTool,
+    WSFETool,
 )
 
 

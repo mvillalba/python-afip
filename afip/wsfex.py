@@ -330,7 +330,7 @@ class WSFEXClient(WebServiceClient):
 class WSFEXTool(WebServiceTool):
     name = 'wsfex'
     help = 'Facturación Electrónica - Factura de exportación'
-    client = None
+    client_class = WSFEXClient
 
     def __init__(self, parser):
         super().__init__(parser)
@@ -376,10 +376,6 @@ class WSFEXTool(WebServiceTool):
                 word = word[0].upper() + word[1:]
             label.append(word)
         return ' '.join(label)
-
-    def handle(self, args):
-        self.client = WSFEXClient(self.credentials, zeep_cache=self.zeep_cache, log_dir=self.log_dir)
-        getattr(self, args.subcommand)(args)
 
     def status(self, args):
         for service, status in self.client.get_status().items():

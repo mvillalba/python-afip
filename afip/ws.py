@@ -43,6 +43,8 @@ class WebServiceTool:
     name = None
     help = None
     needs_profile = True
+    client = None
+    client_class = None
 
     def __init__(self, parser):
         self.data_dir = user_data_dir('afip', 'martinvillalba.com')
@@ -106,7 +108,11 @@ class WebServiceTool:
         return ticket
 
     def handle(self, args):
-        raise NotImplementedError()
+        self.client = self.client_class(self.credentials, zeep_cache=self.zeep_cache, log_dir=self.log_dir)
+        if hasattr(args, 'subcommand'):
+            getattr(self, args.subcommand)(args)
+        else:
+            raise NotImplementedError()
 
 
 class ProfileTool(WebServiceTool):
