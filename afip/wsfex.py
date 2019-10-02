@@ -38,7 +38,7 @@ class Invoice:
     cuit = None
     cae = None
     cae_date = None  # Only returned on 'get invoice' operations, and appears to be set to a nil value.
-    cae_expiration = None
+    cae_expiration_date = None
 
     def __init__(self, dict_or_path=None):
         self.items = list()
@@ -56,6 +56,23 @@ class Invoice:
     def generate_id(self):
         self.id = int(time.time() * 1000)
         return self.id
+
+    def get_barcode_digits(self):
+        # Barcode proper
+        cuit = str(self.cuit)
+        invoice_type = str(self.invoice_type).zfill(3)
+        pos = str(self.pos).zfill(5)
+        cae = str(self.cae).zfill(14)
+        date = unparse_date(self.cae_expiration_date)  # TODO: unsure? invoice date?
+        barcode = cuit + invoice_type + pos + cae + date
+
+        # Verification digit
+        odd = sum([int(d) for i, d in enumerate(barcode) if not i % 2])
+        even = sum([int(d) for i, d in enumerate(barcode) if i % 2])
+        digit = even + odd * 3
+        digit = 10 - (digit - (int(digit / 10) * 10))
+        digit = digit % 10
+        return barcode + str(digit)
 
     def add_extra(self, identifier, value):
         self.extras.append((identifier, value,))
@@ -198,7 +215,7 @@ class Invoice:
         self.items = items
         if 'Fecha_cbte_cae' in data:
             self.cae_date = parse_date(data['Fecha_cbte_cae'])
-        self.cae_expiration = parse_date(data['Fch_venc_Cae'])
+        self.cae_expiration_date = parse_date(data['Fch_venc_Cae'])
         self.cae = data['Cae']
         if data['Opcionales'] is not None:
             self.extras = [(e['Id'], e['Valor'],) for e in data['Opcionales']['Opcional']]
@@ -321,7 +338,7 @@ class WSFEXClient(WebServiceClient):
         if 'Cae' in ret:
             invoice.cae = ret['Cae']
         if 'Fch_venc_Cae' in ret:
-            invoice.cae_expiration = parse_date(ret['Fch_venc_Cae'])
+            invoice.cae_expiration_date = parse_date(ret['Fch_venc_Cae'])
         if 'Cuit' in ret:
             invoice.cuit = ret['Cuit']
         return ret['Resultado'], ret['Reproceso'] == 'S', ret['Motivos_Obs']
@@ -463,5 +480,5 @@ class WSFEXTool(WebServiceTool):
         print('Comment:', comments)
         print('CUIT:', invoice.cuit)
         print('CAE:', invoice.cae)
-        print('CAE Expiration:', invoice.cae_expiration)
+        print('CAE Expiration:', invoice.cae_expiration_date)
         invoice.to_json(args.path)
