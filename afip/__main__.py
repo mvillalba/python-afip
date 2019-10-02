@@ -1,5 +1,6 @@
 import sys
 import argparse
+import zeep.exceptions
 from .version import __version__
 from .wsaa import WSAATool
 from .wsfex import WSFEXTool
@@ -48,7 +49,10 @@ class CLITool:
             return getattr(self, 'command_' + self.args.command)()
 
         # Handle external commands
-        return self.commands[self.args.command].run(self.args)
+        try:
+            return self.commands[self.args.command].run(self.args)
+        except zeep.exceptions.Fault as e:
+            print('Error: {}: {}'.format(e.code, e.message))
 
 
 # Run tool

@@ -219,3 +219,4 @@ dmypy.json
 certs/
 logs/
 *.db
+*.json

@@ -3,6 +3,7 @@
 
 import json
 import time
+from decimal import Decimal
 from zeep.helpers import serialize_object
 from .ws import WebServiceClient, WebServiceTool, WebServiceError
 from .utils import *
@@ -34,17 +35,23 @@ class Invoice:
     associated_invoices = None
     items = None
     extras = None
+    cuit = None
+    cae = None
+    cae_date = None  # Only returned on 'get invoice' operations, and appears to be set to a nil value.
+    cae_expiration = None
 
-    def __init__(self, data=None):
+    def __init__(self, dict_or_path=None):
         self.items = list()
         self.associated_invoices = list()
         self.extras = list()
         self.permits = list()
-        if data is not None:
-            if 'Id' in data:
-                self.from_afip_dict(data)
+        if dict_or_path is not None:
+            if type(dict_or_path) == str:
+                self.from_json(dict_or_path)
+            elif 'Id' in dict_or_path:
+                self.from_afip_dict(dict_or_path)
             else:
-                self.from_dict(data)
+                self.from_dict(dict_or_path)
 
     def generate_id(self):
         self.id = int(time.time() * 1000)
@@ -62,9 +69,12 @@ class Invoice:
     def add_item(self, code, description, quantity, measurement_unit, unit_price, discount, total_amount):
         self.items.append((code, description, quantity, measurement_unit, unit_price, discount, total_amount,))
 
+    def set_incoterms(self, code, description):
+        self.incoterms = (code, description,)
+
     def _null(self, value):
-        if value is None or value == '':
-            return 'NULL'
+        if value is None:
+            return ''
         return value
 
     def to_dict(self):
@@ -76,6 +86,8 @@ class Invoice:
                 continue
             if typ == 'date':
                 value = unparse_date(value)
+            if typ == 'Decimal':
+                value = str(value)
             data[el] = value
         return data
 
@@ -85,13 +97,35 @@ class Invoice:
                 v = parse_date(v)
             setattr(self, k, v)
 
+    def to_json(self, path):
+        with open(path, 'w') as fp:
+            json.dump(self.to_dict(), fp)
+
+    def from_json(self, path):
+        with open(path) as fp:
+            self.from_dict(json.load(fp))
+
+    def _item_to_afip(self, item):
+        ret = dict()
+        ret['Pro_ds'] = item[1]
+        ret['Pro_umed'] = item[3]
+        ret['Pro_bonificacion'] = Decimal(item[5] if item[5] is not None else '0')
+        ret['Pro_total_item'] = Decimal(item[6])
+        if item[4] is not None:
+            ret['Pro_precio_uni'] = Decimal(item[4])
+        if item[2] is not None:
+            ret['Pro_qty'] = Decimal(item[2])
+        if item[0] is not None:
+            ret['Pro_codigo'] = item[0]
+        ret = dict(Item=ret)
+        return ret
+
     def to_afip_dict(self):
-        permits = [dict(Id_permiso=p[0], Dst_merc=p[1]) for p in self.permits]
-        assoc_invoices = [dict(Cbte_tipo=i[0], Cbte_punto_vta=i[1], Cbte_nro=i[2], Cbte_cuit=i[3])
-                         for i in self.associated_invoices]
-        items = [dict(Pro_codigo=i[0], Pro_ds=i[1], Pro_qty=i[2], Pro_umed=i[3], Pro_precio_uni=i[4],
-                      Pro_bonification=i[5], Pro_total_item=i[6]) for i in self.items]
-        extras = [dict(Id=e[0], Valor=e[1]) for e in self.extras]
+        permits = [dict(Permiso=dict(Id_permiso=p[0], Dst_merc=p[1])) for p in self.permits]
+        assoc_invoices = [dict(Cmp_asoc=dict(Cbte_tipo=i[0], Cbte_punto_vta=i[1], Cbte_nro=i[2], Cbte_cuit=i[3]))
+                          for i in self.associated_invoices]
+        items = [self._item_to_afip(i) for i in self.items]
+        extras = [dict(Optional=dict(Id=e[0], Valor=e[1])) for e in self.extras]
         invoice = {
             'Id': self.id,
             'Cbte_Tipo': self.invoice_type,
@@ -132,82 +166,42 @@ class Invoice:
         if self.payment_date is not None:
             invoice['Fecha_pago'] = unparse_date(self.payment_date)
         return invoice
-        # < Id > long < / Id >
-        # < Fecha_cbte > string < / Fecha_cbte >
-        # < Cbte_Tipo > short < / Cbte_Tipo >
-        # < Punto_vta > int < / Punto_vta >
-        # < Cbte_nro > long < / Cbte_nro >
-        # < Tipo_expo > short < / Tipo_expo >
-        # < Permiso_existente > string < / Permiso_existente >
-        # < Permisos >
-            # < Permiso >
-                # < Id_permiso > string < / Id_permiso >
-                # < Dst_merc > int < / Dst_merc >
-            # < / Permiso >
-            # < Permiso >
-                # < Id_permiso > string < / Id_permiso >
-                # < Dst_merc > int < / Dst_merc >
-            # < / Permiso >
-        # < / Permisos >
-        # < Dst_cmp > short < / Dst_cmp >
-        # < Cliente > string < / Cliente >
-        # < Cuit_pais_cliente > long < / Cuit_pais_cliente >
-        # < Domicilio_cliente > string < / Domicilio_cliente >
-        # < Id_impositivo > string < / Id_impositivo >
-        # < Moneda_Id > string < / Moneda_Id >
-        # < Moneda_ctz > decimal < / Moneda_ctz >
-        # < Obs_comerciales > string < / Obs_comerciales >
-        # < Imp_total > decimal < / Imp_total >
-        # < Obs > string < / Obs >
-        # < Cmps_asoc >
-            # < Cmp_asoc >
-                # < Cbte_tipo > short < / Cbte_tipo >
-                # < Cbte_punto_vta > int < / Cbte_punto_vta >
-                # < Cbte_nro > long < / Cbte_nro >
-                # < Cbte_cuit > long < / Cbte_cuit >
-            # < / Cmp_asoc >
-            # < Cmp_asoc >
-                # < Cbte_tipo > short < / Cbte_tipo >
-                # < Cbte_punto_vta > int < / Cbte_punto_vta >
-                # < Cbte_nro > long < / Cbte_nro >
-                # < Cbte_cuit > long < / Cbte_cuit >
-            # < / Cmp_asoc >
-        # < / Cmps_asoc >
-        # < Forma_pago > string < / Forma_pago >
-        # < Incoterms > string < / Incoterms >
-        # < Incoterms_Ds > string < / Incoterms_Ds >
-        # < Idioma_cbte > short < / Idioma_cbte >
-        # < Items >
-            # < Item >
-                # < Pro_codigo > string < / Pro_codigo >
-                # < Pro_ds > string < / Pro_ds >
-                # < Pro_qty > decimal < / Pro_qty >
-                # < Pro_umed > int < / Pro_umed >
-                # < Pro_precio_uni > decimal < / Pro_precio_uni >
-                # < Pro_bonificacion > decimal < / Pro_bonificacion >
-                # < Pro_total_item > decimal < / Pro_total_item >
-            # < / Item >
-            # < Item >
-                # < Pro_codigo > string < / Pro_codigo >
-                # < Pro_ds > string < / Pro_ds >
-                # < Pro_qty > decimal < / Pro_qty >
-                # < Pro_umed > int < / Pro_umed >
-                # < Pro_precio_uni > decimal < / Pro_precio_uni >
-                # < Pro_bonificacion > decimal < / Pro_bonificacion >
-                # < Pro_total_item > decimal < / Pro_total_item >
-            # < / Item >
-        # < / Items >
-        # < Opcionales >
-        #     < Opcional >
-        #         < Id > string < / Id >
-        #         < Valor > string < / Valor >
-        #     < / Opcional >
-        # < / Opcionales >
-        # < Fecha_pago > string < / Fecha_pago >
 
     def from_afip_dict(self, data):
-        # TODO
-        pass
+        self.id = data['Id']
+        self.date = parse_date(data['Fecha_cbte'])
+        self.invoice_type = data['Cbte_tipo']
+        self.pos = data['Punto_vta']
+        self.number = data['Cbte_nro']
+        self.export_type = data['Tipo_expo']
+        self.existing_permit = data['Permiso_existente']
+        self.permits = [(p['Id_permiso'], p['Dst_merc'],) for p in data['Permisos']] if data['Permisos'] else list()
+        self.destination = data['Dst_cmp']
+        self.client_name = data['Cliente']
+        self.client_country_cuit = data['Cuit_pais_cliente']
+        self.client_address = data['Domicilio_cliente']
+        self.client_tax_id = data['Id_impositivo']
+        self.currency_id = data['Moneda_Id']
+        self.currency_quote = data['Moneda_ctz']
+        self.commercial_comments = data['Obs_comerciales']
+        self.total_amount = data['Imp_total']
+        self.comments = data['Obs']
+        if data['Cmps_asoc'] is not None:
+            self.associated_invoices = [(i['Cbte_tipo'], i['Cbte_punto_vta'], i['Cbte_nro'], i['Cbte_cuit'])
+                                        for i in data['Cmps_asoc']['Cmp_asoc']]
+        self.payment_method = data['Forma_pago']
+        if data['Incoterms'] is not None:
+            self.incoterms = (data['Incoterms'], data['Incoterms_Ds'],)
+        self.language = data['Idioma_cbte']
+        items = [(i['Pro_codigo'], i['Pro_ds'], i['Pro_qty'], i['Pro_umed'], i['Pro_precio_uni'],
+                  i['Pro_bonificacion'], i['Pro_total_item'], ) for i in data['Items']['Item']]
+        self.items = items
+        if 'Fecha_cbte_cae' in data:
+            self.cae_date = parse_date(data['Fecha_cbte_cae'])
+        self.cae_expiration = parse_date(data['Fch_venc_Cae'])
+        self.cae = data['Cae']
+        if data['Opcionales'] is not None:
+            self.extras = [(e['Id'], e['Valor'],) for e in data['Opcionales']['Opcional']]
 
 
 class WSFEXClient(WebServiceClient):
@@ -223,7 +217,7 @@ class WSFEXClient(WebServiceClient):
                               Sign=self.credentials.tickets['wsfex'].signature,
                               Cuit=self.credentials.cuit)
 
-    def _check_errors(self, ret, error_key ='FEXErr'):
+    def _check_errors(self, ret, error_key='FEXErr'):
         if error_key in ret and ret[error_key]['ErrCode'] != 0:
             raise WebServiceError(ret[error_key]['ErrCode'], ret[error_key]['ErrMsg'])
 
@@ -248,12 +242,12 @@ class WSFEXClient(WebServiceClient):
     def get_currencies(self):
         ret = self._invoke('FEXGetPARAM_MON')['ClsFEXResponse_Mon']
         return [(c['Mon_Id'], c['Mon_Ds'], parse_date(c['Mon_vig_desde']),
-                parse_date(c['Mon_vig_hasta'])) for c in ret]
+                 parse_date(c['Mon_vig_hasta'])) for c in ret]
 
     def get_invoice_types(self):
         ret = self._invoke('FEXGetPARAM_Cbte_Tipo')['ClsFEXResponse_Cbte_Tipo']
         return [(c['Cbte_Id'], c['Cbte_Ds'].strip(), parse_date(c['Cbte_vig_desde']),
-                parse_date(c['Cbte_vig_hasta'])) for c in ret]
+                 parse_date(c['Cbte_vig_hasta'])) for c in ret]
 
     def get_languages(self):
         ret = self._invoke('FEXGetPARAM_Idiomas')['ClsFEXResponse_Idi']
@@ -266,12 +260,12 @@ class WSFEXClient(WebServiceClient):
     def get_incoterms(self):
         ret = self._invoke('FEXGetPARAM_Incoterms')['ClsFEXResponse_Inc']
         return [(c['Inc_Id'], c['Inc_Ds'], parse_date(c['Inc_vig_desde']),
-                parse_date(c['Inc_vig_hasta'])) for c in ret]
+                 parse_date(c['Inc_vig_hasta'])) for c in ret]
 
     def get_export_types(self):
         ret = self._invoke('FEXGetPARAM_Tipo_Expo')['ClsFEXResponse_Tex']
         return [(c['Tex_Id'], c['Tex_Ds'], parse_date(c['Tex_vig_desde']),
-                parse_date(c['Tex_vig_hasta'])) for c in ret]
+                 parse_date(c['Tex_vig_hasta'])) for c in ret]
 
     def get_measurement_units(self):
         ret = self._invoke('FEXGetPARAM_UMed')['ClsFEXResponse_UMed']
@@ -302,7 +296,7 @@ class WSFEXClient(WebServiceClient):
     def get_optional_data_types(self):
         ret = self._invoke('FEXGetPARAM_Opcionales')['ClsFEXResponse_Opc']
         return [(c['Opc_Id'], c['Opc_Ds'], parse_date(c['Opc_vig_desde']),
-                parse_date(c['Opc_vig_hasta'])) for c in ret]
+                 parse_date(c['Opc_vig_hasta'])) for c in ret]
 
     def check_customs_permit(self, identifier, destination):
         return self._invoke('FEXCheck_Permiso', kwargs=dict(ID_Permiso=identifier, Dst_merc=destination))['Status']
@@ -320,13 +314,17 @@ class WSFEXClient(WebServiceClient):
 
     def get_invoice(self, pos, typ, number):
         cmp = dict(Cbte_tipo=typ, Punto_vta=pos, Cbte_nro=number)
-        # TODO: need an actual invoice to test!
-        return self._invoke('FEXGetCMP', kwargs=dict(Cmp=cmp))
+        return Invoice(self._invoke('FEXGetCMP', kwargs=dict(Cmp=cmp)))
 
     def authorize(self, invoice):
-        ret = self._invoke('FEXAuthorize', kwargs=dict(Cmp=invoice.to_afip_dict()), result_key='FEXAuthorizeResult')
-        # TODO: process response. Maybe add info to 'invoice' so it can be persisted?
-        return ret
+        ret = self._invoke('FEXAuthorize', kwargs=dict(Cmp=invoice.to_afip_dict()), result_key='FEXResultAuth')
+        if 'Cae' in ret:
+            invoice.cae = ret['Cae']
+        if 'Fch_venc_Cae' in ret:
+            invoice.cae_expiration = parse_date(ret['Fch_venc_Cae'])
+        if 'Cuit' in ret:
+            invoice.cuit = ret['Cuit']
+        return ret['Resultado'], ret['Reproceso'] == 'S', ret['Motivos_Obs']
 
 
 class WSFEXTool(WebServiceTool):
@@ -358,13 +356,26 @@ class WSFEXTool(WebServiceTool):
         last_invoice_number = subparsers.add_parser('last_invoice_number', help='get last invoice number (not ID)')
         last_invoice_number.add_argument('pos', help='point of sale identifier')
         last_invoice_number.add_argument('type', help='type of invoice')
-        subparsers.add_parser('last_invoice_id', help='get last invoice ID (used to authorize an invoice, not invoice number)')
+        subparsers.add_parser('last_invoice_id',
+                              help='get last invoice ID (used to authorize an invoice, not invoice number)')
         invoice = subparsers.add_parser('invoice', help='get invoice details')
         invoice.add_argument('pos', help='point of sale identifier')
         invoice.add_argument('type', help='type of invoice')
         invoice.add_argument('number', help='invoice number (not ID)')
-        authorize = subparsers.add_parser('authorize', help='send invoice to AFIP for authorization (and CAE issuance) [IRREVERSIBLE!]')
+        authorize = subparsers.add_parser('authorize',
+                                          help='send invoice to AFIP for authorization (and CAE issuance) [IRREVERSIBLE!]')
         authorize.add_argument('path', help='path to valid invoice serialized from an Invoice instance (no interactive interface, sorry)')
+
+    def make_label(self, field):
+        words = field.lower().split('_')
+        label = list()
+        for word in words:
+            if word in ('cuit', 'cae'):
+                word = word.upper()
+            else:
+                word = word[0].upper() + word[1:]
+            label.append(word)
+        return ' '.join(label)
 
     def handle(self, args):
         self.client = WSFEXClient(self.credentials, zeep_cache=self.zeep_cache, log_dir=self.log_dir)
@@ -435,13 +446,26 @@ class WSFEXTool(WebServiceTool):
 
     def invoice(self, args):
         invoice = self.client.get_invoice(args.pos, args.type, args.number)
-        # TODO: need an actual invoice to test!
-        from pprint import pprint
-        pprint(invoice)
+        l = None
+        for k, v in invoice.to_dict().items():
+            if 'date' in k:
+                v = parse_date(v)
+            if type(v) == list and len(v):
+                l = v
+                v = ''
+            print('{}: {}'.format(self.make_label(k), v))
+            if l is not None:
+                for i in l:
+                    print(' -', i)
+                l = None
 
     def authorize(self, args):
-        with open(args.path) as fp:
-            invoice = json.load(fp)
-        invoice = Invoice(invoice)
-        print(self.client.authorize(invoice))
-        # TODO: pretty-print
+        invoice = Invoice(args.path)
+        result, reprocessed, comments = self.client.authorize(invoice)
+        print('Result:', result)
+        print('Reprocessed:', reprocessed)
+        print('Comment:', comments)
+        print('CUIT:', invoice.cuit)
+        print('CAE:', invoice.cae)
+        print('CAE Expiration:', invoice.cae_expiration)
+        invoice.to_json(args.path)
