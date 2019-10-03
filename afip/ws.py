@@ -55,6 +55,11 @@ class WebServiceTool:
         self.credentials_dir = os.path.join(self.data_dir, 'credentials')
         self.credentials = None
         self.profile = None
+        self.defaults = dict()
+        self.defaults_path = os.path.join(self.data_dir, 'defaults.json')
+        if os.path.exists(self.defaults_path):
+            with open(self.defaults_path) as fp:
+                self.defaults = json.load(fp)
         os.makedirs(self.log_dir, exist_ok=True)
         os.makedirs(self.credentials_dir, exist_ok=True)
         os.makedirs(self.token_dir, exist_ok=True)
@@ -62,6 +67,8 @@ class WebServiceTool:
     def run(self, args):
         # Pick profile
         profile = args.profile if args.profile is not None else None
+        if profile is None:
+            profile = self.defaults.get('profile')
         if profile is None:
             profile = [e.split('.')[0] for e in os.listdir(self.credentials_dir) if e.endswith('.json')]
             profile = profile[0] if len(profile) == 1 else None
@@ -136,13 +143,11 @@ class ProfileTool(WebServiceTool):
         add.add_argument('key_path', help='path to certificate private key')
         add.add_argument('environment', help='either "testing" or "production"')
 
+        default = subparsers.add_parser('default', help='show (no arguments) or set default profile')
+        default.add_argument('name', help='name of profile to set as default', nargs='?')
+
     def handle(self, args):
-        if args.subcommand == 'show':
-            return self.show(args)
-        if args.subcommand == 'add':
-            return self.add(args)
-        if args.subcommand == 'remove':
-            return self.remove(args)
+        getattr(self, args.subcommand)(args)
 
     def get_env(self, p):
         with open(self.get_profile_path(p), 'r') as fp:
@@ -197,3 +202,22 @@ class ProfileTool(WebServiceTool):
             os.unlink(crt_path)
         if os.path.exists(key_path):
             os.unlink(key_path)
+        if self.defaults.get('profile') == args.name:
+            self.defaults['default'] = None
+            self.save_defaults()
+
+    def default(self, args):
+        if args.name is None:
+            profile = self.defaults.get('profile')
+            if profile is not None:
+                print(profile)
+            return
+        if not os.path.exists(self.get_profile_path(args.name)):
+            print('Profile does not exist:', args.name)
+            return
+        self.defaults['profile'] = args.name
+        self.save_defaults()
+
+    def save_defaults(self):
+        with open(self.defaults_path, 'w') as fp:
+            json.dump(self.defaults, fp)
