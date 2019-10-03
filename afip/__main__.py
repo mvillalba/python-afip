@@ -5,6 +5,8 @@ from .version import __version__
 from .wsaa import WSAATool
 from .wsfex import WSFEXTool
 from .wsfe import WSFETool
+from .ws_sr_padron_a5 import WSSRPadronA5Tool
+from .ws_sr_padron_a13 import WSSRPadronA13Tool
 from .ws import ProfileTool
 
 COMMAND_CLASSES = (
@@ -12,6 +14,8 @@ COMMAND_CLASSES = (
     WSAATool,
     WSFEXTool,
     WSFETool,
+    WSSRPadronA5Tool,
+    WSSRPadronA13Tool,
 )
 
 
