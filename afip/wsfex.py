@@ -308,7 +308,7 @@ class WSFEXClient(WebServiceClient):
         if ret is None:
             return list()
         ret = ret['ClsFEXResponse_PtoVenta']
-        return [(c['Pve_Nro'], c['Pve_Bloqueado'], parse_date(c['Pve_FchBaja'])) for c in ret]
+        return [(c['Pve_Nro'], c['Pve_Bloqueado'] != 'N', parse_date(c['Pve_FchBaja'])) for c in ret]
 
     def get_optional_data_types(self):
         ret = self._invoke('FEXGetPARAM_Opcionales')['ClsFEXResponse_Opc']
