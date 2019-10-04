@@ -9,12 +9,10 @@ from .ws_sr_padron_a5 import WSSRPadronA5Client, WSSRPadronA5Tool
 class WSSRPadronA13Client(WSSRPadronA5Client):
     name = 'ws_sr_padron_a13'
     wsdl_testing = 'https://awshomo.afip.gov.ar/sr-padron/webservices/personaServiceA13?WSDL'
-    wsdl_production = 'hhttps://aws.afip.gov.ar/sr-padron/webservices/personaServiceA13?WSDL'
-    # TODO
+    wsdl_production = 'https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA13?WSDL'
 
 
 class WSSRPadronA13Tool(WSSRPadronA5Tool):
     name = 'ws_sr_padron_a13'
     help = 'Consulta a Padrón Alcance 13'
-    client_class = WSSRPadronA5Client
-    # TODO
+    client_class = WSSRPadronA13Client
