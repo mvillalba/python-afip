@@ -351,7 +351,7 @@ class WSFEXTool(WebServiceTool):
 
     def __init__(self, parser):
         super().__init__(parser)
-        subparsers = parser.add_subparsers(title='subcommands', dest='subcommand', required=True)
+        subparsers = parser.add_subparsers(title='subcommands', dest='subcommand')
         subparsers.add_parser('status', help='get service status')
         subparsers.add_parser('country_cuits', help='get list of country CUIT numbers')
         subparsers.add_parser('currencies', help='get list of accepted foreign currencies')

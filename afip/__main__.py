@@ -32,7 +32,8 @@ class CLITool:
         # Base parser
         self.parser = argparse.ArgumentParser()
         self.parser.add_argument('--profile', '-p', help='profile to use (when there is more than one)')
-        self.subparsers = self.parser.add_subparsers(title='commands', dest='command', required=True)
+        # Not passing required=True to add_subparsers to allow for pre Python 3.7 compatibility.
+        self.subparsers = self.parser.add_subparsers(title='commands', dest='command')
 
         # Internal commands
         self.subparsers.add_parser('version', help='print out version number')
@@ -55,6 +56,9 @@ class CLITool:
             return getattr(self, 'command_' + self.args.command)()
 
         # Handle external commands
+        if self.args.command is None:
+            print('Error: command not given. Use the -h flag for a list.')
+            return
         try:
             return self.commands[self.args.command].run(self.args)
         except zeep.exceptions.Fault as e:

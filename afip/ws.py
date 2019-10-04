@@ -115,8 +115,12 @@ class WebServiceTool:
         return ticket
 
     def handle(self, args):
-        self.client = self.client_class(self.credentials, zeep_cache=self.zeep_cache, log_dir=self.log_dir)
+        if self.client_class is not None:
+            self.client = self.client_class(self.credentials, zeep_cache=self.zeep_cache, log_dir=self.log_dir)
         if hasattr(args, 'subcommand'):
+            if args.subcommand is None:
+                print('Error: sub-command not given. Use the -h flag for a list.')
+                return
             getattr(self, args.subcommand)(args)
         else:
             raise NotImplementedError()
@@ -129,7 +133,7 @@ class ProfileTool(WebServiceTool):
 
     def __init__(self, parser):
         super().__init__(parser)
-        subparsers = parser.add_subparsers(title='subcommands', dest='subcommand', required=True)
+        subparsers = parser.add_subparsers(title='subcommands', dest='subcommand')
 
         subparsers.add_parser('show', help='print list of profiles')
 
@@ -145,9 +149,6 @@ class ProfileTool(WebServiceTool):
 
         default = subparsers.add_parser('default', help='show (no arguments) or set default profile')
         default.add_argument('name', help='name of profile to set as default', nargs='?')
-
-    def handle(self, args):
-        getattr(self, args.subcommand)(args)
 
     def get_env(self, p):
         with open(self.get_profile_path(p), 'r') as fp:

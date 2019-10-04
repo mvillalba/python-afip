@@ -52,7 +52,7 @@ class WSSRPadronA5Tool(WebServiceTool):
 
     def __init__(self, parser):
         super().__init__(parser)
-        subparsers = parser.add_subparsers(title='subcommands', dest='subcommand', required=True)
+        subparsers = parser.add_subparsers(title='subcommands', dest='subcommand')
         subparsers.add_parser('status', help='get service status')
         query = subparsers.add_parser('query', help='query information for a given CUIT')
         query.add_argument('cuit', help='CUIT number to query information about')

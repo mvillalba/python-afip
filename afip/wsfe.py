@@ -49,7 +49,7 @@ class WSFETool(WebServiceTool):
 
     def __init__(self, parser):
         super().__init__(parser)
-        subparsers = parser.add_subparsers(title='subcommands', dest='subcommand', required=True)
+        subparsers = parser.add_subparsers(title='subcommands', dest='subcommand')
         subparsers.add_parser('status', help='get service status')
         subparsers.add_parser('countries', help='get list of acceptable countries')
 

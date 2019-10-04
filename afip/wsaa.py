@@ -76,16 +76,10 @@ class WSAATool(WebServiceTool):
 
     def __init__(self, parser):
         super().__init__(parser)
-        subparsers = parser.add_subparsers(title='subcommands', dest='subcommand', required=True)
+        subparsers = parser.add_subparsers(title='subcommands', dest='subcommand')
         subparsers.add_parser('show', help='print list of held tokens and expiration dates')
         auth = subparsers.add_parser('authorize', help='request token for a given service')
         auth.add_argument('service', help='name of service (WSN) to request a token for')
-
-    def handle(self, args):
-        if args.subcommand == 'show':
-            return self.show(args)
-        elif args.subcommand == 'authorize':
-            return self.authorize(args)
 
     def show(self, args):
         for service, ticket in self.get_tickets().items():
