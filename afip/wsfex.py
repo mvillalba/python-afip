@@ -435,7 +435,7 @@ class WSFEXTool(WebServiceTool):
         print('{}: {} ARS'.format(date, quote))
 
     def quotes(self, args):
-        for identifier, description, rate, date in self.client.get_currency_quotes(self.parse_date(args.date)):
+        for identifier, description, rate, date in self.client.get_currency_quotes(parse_date(args.date)):
             print(str(date) + ':', identifier, description, rate, 'ARS')
 
     def pos(self, args):
