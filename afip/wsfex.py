@@ -308,7 +308,8 @@ class WSFEXClient(WebServiceClient):
         if ret is None:
             return list()
         ret = ret['ClsFEXResponse_PtoVenta']
-        return [(c['Pve_Nro'], c['Pve_Bloqueado'] != 'N', parse_date(c['Pve_FchBaja'])) for c in ret]
+        etype = 'CAI'  # This is included for compatibility with WSFE's analog method that returns "CAE" or "CAEA"
+        return [(c['Pve_Nro'], etype, c['Pve_Bloqueado'] != 'N', parse_date(c['Pve_FchBaja'])) for c in ret]
 
     def get_optional_data_types(self):
         ret = self._invoke('FEXGetPARAM_Opcionales')['ClsFEXResponse_Opc']
@@ -439,8 +440,8 @@ class WSFEXTool(WebServiceTool):
             print(str(date) + ':', identifier, description, rate, 'ARS')
 
     def pos(self, args):
-        for identifier, blocked, closed_on in self.client.get_points_of_sale():
-            print(identifier, blocked, closed_on)
+        for identifier, etype, blocked, closed_on in self.client.get_points_of_sale():
+            print(identifier, f'"{etype}"', blocked, closed_on)
 
     def optional(self, args):
         for identifier, name, valid_from, valid_until in self.client.get_optional_data_types():
