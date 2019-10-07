@@ -6,11 +6,9 @@ from .ws import WebServiceClient, WebServiceTool, WebServiceError
 from .utils import *
 
 
-# TODO: move constructor, _check_errors, and _invoke to parent?
+# TODO: move constructor and _invoke to parent?
 # TODO: missing: FECAEASinMovimientoConsultar, FECAEARegInformativo, FECAEARegInformativo,
-# TODO: FECAEASinMovimientoInformar, FEParamGetTiposTributos, FEParamGetTiposOpcional,
-# TODO: FEParamGetTiposMonedas, FEParamGetTiposIva, FEParamGetTiposDoc, FEParamGetTiposConcepto
-# TODO: FEParamGetTiposCbte, FECAEAConsultar, FECAEASolicitar, FECAESolicitar,
+# TODO: FECAEASinMovimientoInformar, FECAEAConsultar, FECAEASolicitar, FECAESolicitar,
 class WSFEClient(WebServiceClient):
     name = 'wsfe'
     wsdl_testing = 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL'
@@ -70,6 +68,34 @@ class WSFEClient(WebServiceClient):
         ret = ret['PtoVenta']
         return [(c['Nro'], c['EmisionTipo'], c['Bloqueado'] != 'N', parse_date(c['FchBaja'])) for c in ret]
 
+    def get_currencies(self):
+        ret = self._invoke('FEParamGetTiposMonedas')['Moneda']
+        return [(c['Id'], c['Desc'], parse_date(c['FchDesde']), parse_date(c['FchHasta'])) for c in ret]
+
+    def get_invoice_types(self):
+        ret = self._invoke('FEParamGetTiposCbte')['CbteTipo']
+        return [(c['Id'], c['Desc'], parse_date(c['FchDesde']), parse_date(c['FchHasta'])) for c in ret]
+
+    def get_optional_data_types(self):
+        ret = self._invoke('FEParamGetTiposOpcional')['OpcionalTipo']
+        return [(c['Id'], c['Desc'], parse_date(c['FchDesde']), parse_date(c['FchHasta'])) for c in ret]
+
+    def get_iva_types(self):
+        ret = self._invoke('FEParamGetTiposIva')['IvaTipo']
+        return [(c['Id'], c['Desc'], parse_date(c['FchDesde']), parse_date(c['FchHasta'])) for c in ret]
+
+    def get_document_types(self):
+        ret = self._invoke('FEParamGetTiposDoc')['DocTipo']
+        return [(c['Id'], c['Desc'], parse_date(c['FchDesde']), parse_date(c['FchHasta'])) for c in ret]
+
+    def get_sale_types(self):
+        ret = self._invoke('FEParamGetTiposConcepto')['ConceptoTipo']
+        return [(c['Id'], c['Desc'], parse_date(c['FchDesde']), parse_date(c['FchHasta'])) for c in ret]
+
+    def get_tax_types(self):
+        ret = self._invoke('FEParamGetTiposTributos')['TributoTipo']
+        return [(c['Id'], c['Desc'], parse_date(c['FchDesde']), parse_date(c['FchHasta'])) for c in ret]
+
 
 # TODO: maybe make this inherit from WSFEXTool as most methods are copies of each other?
 class WSFETool(WebServiceTool):
@@ -92,6 +118,14 @@ class WSFETool(WebServiceTool):
         quote = subparsers.add_parser('quote', help='get quote for a given currency')
         quote.add_argument('currency', help='currency identifier')
         subparsers.add_parser('pos', help='get registered points of sale')
+        subparsers.add_parser('currencies', help='get list of accepted foreign currencies')
+        subparsers.add_parser('invoice_types', help='get list of valid invoice types')
+        subparsers.add_parser('optional', help='get optional data types')
+
+        subparsers.add_parser('iva', help='get list of valid IVA (VAT) types')
+        subparsers.add_parser('documents', help='get list of valid document types')
+        subparsers.add_parser('sale_types', help='get list of valid sale/operation types (i.e. good, services, both)')
+        subparsers.add_parser('tax_types', help='get list of valid tax ("tributos") types')
 
     # NOTE: verbatim
     def status(self, args):
@@ -136,3 +170,34 @@ class WSFETool(WebServiceTool):
     def pos(self, args):
         for identifier, etype, blocked, closed_on in self.client.get_points_of_sale():
             print(identifier, f'"{etype}"', blocked, closed_on)
+
+    # NOTE: verbatim
+    def currencies(self, args):
+        for identifier, name, valid_from, valid_until in self.client.get_currencies():
+            print(identifier, name, '[valid: from {}, until {}]'.format(valid_from, valid_until))
+
+    # NOTE: verbatim
+    def invoice_types(self, args):
+        for identifier, name, valid_from, valid_until in self.client.get_invoice_types():
+            print(identifier, name, '[valid: from {}, until {}]'.format(valid_from, valid_until))
+
+    # NOTE: verbatim
+    def optional(self, args):
+        for identifier, name, valid_from, valid_until in self.client.get_optional_data_types():
+            print(identifier, name, '[valid: from {}, until {}]'.format(valid_from, valid_until))
+
+    def iva(self, args):
+        for identifier, name, valid_from, valid_until in self.client.get_iva_types():
+            print(identifier, name, '[valid: from {}, until {}]'.format(valid_from, valid_until))
+
+    def documents(self, args):
+        for identifier, name, valid_from, valid_until in self.client.get_document_types():
+            print(identifier, name, '[valid: from {}, until {}]'.format(valid_from, valid_until))
+
+    def sale_types(self, args):
+        for identifier, name, valid_from, valid_until in self.client.get_sale_types():
+            print(identifier, name, '[valid: from {}, until {}]'.format(valid_from, valid_until))
+
+    def tax_types(self, args):
+        for identifier, name, valid_from, valid_until in self.client.get_tax_types():
+            print(identifier, name, '[valid: from {}, until {}]'.format(valid_from, valid_until))
